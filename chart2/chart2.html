@@ -79,6 +79,19 @@
     stroke-linejoin: round;
   }
 
+  .pct-ring { cursor: default; }
+  .pct-ring:hover { opacity: 0.8; }
+  .pct-label {
+    font-size: 9px;
+    fill: #333;
+    pointer-events: none;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: rgba(255,255,255,0.8);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+  }
+
   #center-info {
     font-size: 12px;
     fill: #333;
@@ -513,6 +526,109 @@ const parentCircle = svg.append("circle")
   .style("cursor", "pointer")
   .on("click", clicked);
 
+// ============== 百分比环形刻度条 ==============
+const pctInnerR = 130;
+const pctOuterR = 148;
+const pctLabelR = 118;
+const MIN_ARC_RAD = 10 * Math.PI / 180;
+
+const pctArcGen = d3.arc()
+  .innerRadius(pctInnerR)
+  .outerRadius(pctOuterR)
+  .padAngle(0.008);
+
+function buildPctData(node) {
+  if (!node.children) return [];
+  return node.children.map((child, i) => ({
+    key: child.data.name,
+    pct: child.value / totalValue,
+    startAngle: child.x0,
+    endAngle: child.x1,
+    colorIndex: i
+  }));
+}
+
+function pctLabelTransform(d) {
+  const mid = (d.startAngle + d.endAngle) / 2;
+  return `translate(${Math.sin(mid) * pctLabelR},${-Math.cos(mid) * pctLabelR})`;
+}
+
+const pctRingG = svg.append("g").attr("class", "pct-ring-group");
+
+pctRingG.selectAll("path")
+  .data(buildPctData(root), d => d.key)
+  .join("path")
+  .attr("class", "pct-ring")
+  .attr("fill", d => palette[d.colorIndex % palette.length])
+  .attr("fill-opacity", 0.9)
+  .attr("d", d => pctArcGen(d))
+  .each(function(d) { this.__prev__ = {...d}; });
+
+pctRingG.selectAll("text.pct-label")
+  .data(buildPctData(root).filter(d => (d.endAngle - d.startAngle) >= MIN_ARC_RAD), d => d.key)
+  .join("text")
+  .attr("class", "pct-label")
+  .attr("dy", "0.35em")
+  .attr("transform", d => pctLabelTransform(d))
+  .text(d => (d.pct * 100).toFixed(1) + "%")
+  .each(function(d) { this.__prev__ = {...d}; });
+
+function updatePctRing(node, transition) {
+  const data = buildPctData(node);
+
+  pctRingG.selectAll("path")
+    .data(data, d => d.key)
+    .join(
+      enter => enter.append("path")
+        .attr("class", "pct-ring")
+        .attr("fill", d => palette[d.colorIndex % palette.length])
+        .attr("fill-opacity", 0)
+        .attr("d", d => pctArcGen(d))
+        .call(e => e.transition(transition).attr("fill-opacity", 0.9)),
+      update => update
+        .call(u => u.transition(transition)
+          .attr("fill", d => palette[d.colorIndex % palette.length])
+          .attrTween("d", function(d) {
+            const prev = this.__prev__ || d;
+            const iS = d3.interpolate(prev.startAngle, d.startAngle);
+            const iE = d3.interpolate(prev.endAngle, d.endAngle);
+            return t => pctArcGen({...d, startAngle: iS(t), endAngle: iE(t)});
+          })
+          .attr("fill-opacity", 0.9)),
+      exit => exit.call(e => e.transition(transition).attr("fill-opacity", 0).remove())
+    )
+    .each(function(d) { this.__prev__ = {...d}; });
+
+  const visible = data.filter(d => (d.endAngle - d.startAngle) >= MIN_ARC_RAD);
+  pctRingG.selectAll("text.pct-label")
+    .data(visible, d => d.key)
+    .join(
+      enter => enter.append("text")
+        .attr("class", "pct-label")
+        .attr("dy", "0.35em")
+        .attr("fill-opacity", 0)
+        .attr("transform", d => pctLabelTransform(d))
+        .text(d => (d.pct * 100).toFixed(1) + "%")
+        .call(e => e.transition(transition).attr("fill-opacity", 1)),
+      update => update
+        .call(u => u.transition(transition)
+          .attrTween("transform", function(d) {
+            const prev = this.__prev__ || d;
+            const prevMid = (prev.startAngle + prev.endAngle) / 2;
+            const newMid = (d.startAngle + d.endAngle) / 2;
+            const interp = d3.interpolate(prevMid, newMid);
+            return t => {
+              const mid = interp(t);
+              return `translate(${Math.sin(mid) * pctLabelR},${-Math.cos(mid) * pctLabelR})`;
+            };
+          })
+          .text(d => (d.pct * 100).toFixed(1) + "%")
+          .attr("fill-opacity", 1)),
+      exit => exit.call(e => e.transition(transition).attr("fill-opacity", 0).remove())
+    )
+    .each(function(d) { this.__prev__ = {...d}; });
+}
+
 const centerInfo = svg.append("g").attr("id", "center-info");
 centerInfo.append("text").attr("class", "title").attr("y", -6).text(root.data.name);
 centerInfo.append("text").attr("class", "value").attr("y", 14).text(`${root.value.toLocaleString()}`);
@@ -590,6 +706,8 @@ function clicked(event, p) {
   }).transition(t)
     .style("opacity", d => labelVisible(d.target) ? 1 : 0)
     .attrTween("transform", d => () => labelTransform(d.current));
+
+  updatePctRing(p, t);
 }
 
 function arcVisible(d) {
