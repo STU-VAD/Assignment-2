@@ -63,8 +63,7 @@
   }
   .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
 
-  #chart-wrap { text-align: center; padding: 16px; }
-  #chart-wrap svg { background: #fff; width: 100%; height: auto; max-width: 100vh; }
+  #chart-wrap svg { background: #fff; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 
   .arc { cursor: pointer; stroke: #fff; stroke-width: 1px; }
   .arc:hover { stroke: #222; stroke-width: 2px; }
@@ -115,6 +114,103 @@
     z-index: 10;
   }
   #tooltip .name { font-weight: bold; margin-bottom: 4px; font-size: 13px; }
+
+  /* ===== 左侧文件管理器表格 ===== */
+  #main-container {
+    display: flex;
+    height: calc(100vh - 200px);
+    min-height: 500px;
+    overflow: hidden;
+  }
+  #tree-table {
+    width: 30%;
+    min-width: 280px;
+    max-width: 420px;
+    background: #fff;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .table-header {
+    padding: 10px 14px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .table-header .col-name { flex: 1; }
+  .table-header .col-value { width: 70px; text-align: right; }
+  .table-header .col-children { width: 60px; text-align: right; }
+  .table-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .table-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .table-row:hover { background: #f0f4ff; }
+  .table-row.active { background: #e3edff; }
+  .row-bar-cell {
+    width: 90px;
+    flex-shrink: 0;
+    margin-right: 10px;
+  }
+  .bar-track {
+    width: 100%;
+    height: 14px;
+    background: #e8e8e8;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  .bar-label {
+    font-size: 10px;
+    color: #555;
+    margin-top: 1px;
+  }
+  .row-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+  .row-value {
+    width: 70px;
+    text-align: right;
+    color: #555;
+    flex-shrink: 0;
+  }
+  .row-children {
+    width: 60px;
+    text-align: right;
+    color: #888;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  #chart-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -131,8 +227,18 @@
   <div id="breadcrumb"></div>
   <div id="legend"></div>
 
-  <div id="chart-wrap">
-    <svg id="chart" viewBox="-480 -480 960 960"></svg>
+  <div id="main-container">
+    <div id="tree-table">
+      <div class="table-header">
+        <span class="col-name">名称</span>
+        <span class="col-value">值</span>
+        <span class="col-children">子项</span>
+      </div>
+      <div class="table-body" id="table-body"></div>
+    </div>
+    <div id="chart-wrap">
+      <svg id="chart" viewBox="-480 -480 960 960"></svg>
+    </div>
   </div>
   <div id="tooltip"></div>
 
@@ -708,6 +814,7 @@ function clicked(event, p) {
     .attrTween("transform", d => () => labelTransform(d.current));
 
   updatePctRing(p, t);
+  updateTable(p);
 }
 
 function arcVisible(d) {
@@ -721,6 +828,66 @@ function labelTransform(d) {
   const y = (d.y0 + d.y1) / 2 * radius;
   return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
 }
+
+// ============== 左侧表格 ==============
+function updateTable(node) {
+  const children = node.children || [];
+  const parentValue = node.value;
+  const tbody = d3.select("#table-body");
+
+  d3.select(".table-header .col-name").text(
+    node.depth === 0 ? "名称" : node.data.name
+  );
+
+  const rows = tbody.selectAll(".table-row")
+    .data(children, d => d.data.name);
+
+  rows.join(
+    enter => {
+      const row = enter.append("div")
+        .attr("class", "table-row")
+        .style("opacity", 0)
+        .call(r => r.transition().duration(300).style("opacity", 1));
+
+      const barCell = row.append("div").attr("class", "row-bar-cell");
+      barCell.append("div").attr("class", "bar-track")
+        .append("div").attr("class", "bar-fill");
+      barCell.append("div").attr("class", "bar-label");
+
+      row.append("div").attr("class", "row-name");
+      row.append("div").attr("class", "row-value");
+      row.append("div").attr("class", "row-children");
+
+      return row;
+    },
+    update => update,
+    exit => exit.call(e => e.transition().duration(200).style("opacity", 0).remove())
+  )
+    .classed("active", false)
+    .on("click", function(event, d) {
+      if (d.children) clicked(null, d);
+    })
+    .style("cursor", d => d.children ? "pointer" : "default")
+    .each(function(d, i) {
+      const row = d3.select(this);
+      const pct = d.value / parentValue;
+      const color = palette[i % palette.length];
+
+      row.select(".bar-fill")
+        .style("width", (pct * 100).toFixed(1) + "%")
+        .style("background", color);
+      row.select(".bar-label")
+        .text((pct * 100).toFixed(1) + "%");
+      row.select(".row-name")
+        .text(d.data.name);
+      row.select(".row-value")
+        .text(d.value.toLocaleString());
+      row.select(".row-children")
+        .text(d.children ? d.children.length + " 个子项" : "—");
+    });
+}
+
+updateTable(root);
 
 // ============== 重置 ==============
 d3.select("#reset").on("click", () => clicked(null, root));
