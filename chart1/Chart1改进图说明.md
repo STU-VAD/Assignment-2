@@ -12,11 +12,11 @@
 
 **原图（正常视觉）**
 
-![原图 - 正常视觉](C:/Users/a2545/Desktop/original_chord.jpg)
+![原图 - 正常视觉](./original_chord.jpg)
 
 **红绿色盲视角下的原图**
 
-![原图 - 红绿色盲模拟](C:/Users/a2545/Desktop/original_chord_deuteranopia.jpg)
+![原图 - 红绿色盲模拟](./original_chord_deuteranopia.jpg)
 
 **色盲视角下原图丢失了什么**：
 
@@ -55,13 +55,13 @@
 
 替换为色盲友好配色,使用 `d3.schemeTableau10`(色盲安全),7 个品牌色对比度更友好。
 
-![色盲友好配色效果](C:/Users/a2545/AppData/Roaming/Typora/typora-user-images/image-20260520225447934.png)
+![色盲友好配色效果](./colorblind_friendly.png)
 
 ### 2. 强化可视化交互
 
 新增**悬停弹出效应**——当悬停品牌弧或某个品牌时,会淡化非相关品牌、强化目标品牌,颜色加深,更清晰地看出品牌之间的关系。
 
-![悬停交互效果](C:/Users/a2545/AppData/Roaming/Typora/typora-user-images/image-20260520225526099.png)
+![悬停交互效果](./hover_interaction.png)
 
 ### 3. 线性渐变增强方向性
 
@@ -76,7 +76,7 @@
 - 用户可对某个具体品牌了解到更详细的数据,以及该品牌与其他品牌的具体关联;
 - 悬浮品牌上方时,数据详情卡片变得更加具体,新增**总人数、忠诚用户、从他牌切换而来用户、流走用户**等指标,并配有不同颜色高亮,更加直观具体。
 
-![品牌详情页效果](C:/Users/a2545/AppData/Roaming/Typora/typora-user-images/image-20260520225555446.png)
+![品牌详情页效果](./brand_detail.png)
 
 ### 5. 忠实用户外圈凸起
 
