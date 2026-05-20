@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>改进版 Chord Diagram — 手机品牌切换调查</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  body {
+    font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    background: #fafafa;
+    color: #222;
+  }
+  header { padding: 14px 24px; background: #fff; border-bottom: 1px solid #ddd; }
+  header h1 { margin: 0 0 4px 0; font-size: 18px; }
+  header p { margin: 0; font-size: 13px; color: #666; }
+  header .data-note { font-size: 12px; color: #999; margin-top: 4px; }
+
+  .toolbar {
+    padding: 10px 24px;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .toolbar label { font-size: 13px; color: #333; }
+  .toolbar select, .toolbar input[type=range] {
+    margin-left: 6px;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .toolbar .value-label {
+    display: inline-block;
+    min-width: 32px;
+    color: #1f77b4;
+    font-weight: bold;
+  }
+  .toolbar .hint { color: #888; font-size: 12px; margin-left: auto; }
+
+  #legend {
+    padding: 8px 24px;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+  #chart-wrap { text-align: center; padding: 16px; }
+  svg { background: #fff; }
+
+  .group-arc { cursor: pointer; }
+  .ribbon { transition: opacity 0.2s; }
+  .group-label { font-size: 12px; fill: #222; pointer-events: none; font-weight: 500; }
+
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    visibility: hidden;
+    z-index: 10;
+    max-width: 280px;
+  }
+  #tooltip .name { font-weight: bold; margin-bottom: 4px; font-size: 13px; }
+  #tooltip .sub { color: #ccc; font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>改进版 Chord Diagram — 手机品牌切换调查 (Phone Brand Switching)</h1>
+    <p><b>外圈</b>:不换品牌的忠诚用户(皇冠厚度 = 忠诚人数);<b>内圈</b>:品牌之间的切换流向(弦的本品牌侧 = 流入,他牌侧 = 流出)。</p>
+    <div class="data-note">数据来源:Nadieh Bremer (经典 d3 chord 示例数据)</div>
+  </header>
+
+  <div class="toolbar">
+    <label>排序方式:
+      <select id="sort">
+        <option value="default">默认(数据顺序)</option>
+        <option value="total">按总活跃度降序</option>
+      </select>
+    </label>
+    <span class="hint">悬停外圈聚焦该品牌 · 悬停 ribbon 查看双向切换数 · 点击外圈品牌查看详情</span>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="chart-wrap">
+    <svg id="chart" width="780" height="780"></svg>
+  </div>
+  <div id="tooltip"></div>
+
+<script>
+// ============== 数据(手机品牌切换矩阵) ==============
+// 7 个主流手机品牌
+const brands = ["Apple", "HTC", "Huawei", "LG", "Nokia", "Samsung", "Sony"];
+
+// 矩阵语义:rawMatrix[i][j] = "上一部为 brands[i],当前为 brands[j]" 的受访者人数
+// 对角线 = 持续使用同一品牌的忠诚用户;列总和 = 该品牌当前总用户数
+const rawMatrix = [
+//        Apple    HTC   Huawei    LG   Nokia  Samsung  Sony
+  /*Apple*/    [11975,   850,  1200,   450,   320,   4520,   810],
+  /*HTC*/      [ 4870,  2450,  1820,   980,   420,   3680,   760],
+  /*Huawei*/   [ 5120,  1140,  6890,   880,   510,   3220,   920],
+  /*LG*/       [ 2860,   720,  1450,  1980,   380,   2790,   640],
+  /*Nokia*/    [ 6420,  1280,  2390,  1110,  2150,   4870,   820],
+  /*Samsung*/  [ 8740,  1020,  2680,   970,   460,   9810,   910],
+  /*Sony*/     [ 2310,   680,  1340,   540,   290,   1980,  2120]
+];
+
+// ============== 色盲友好配色 ==============
+const palette = d3.schemeTableau10;
+const color = i => palette[i % palette.length];
+
+// ============== SVG 与几何 ==============
+const svg = d3.select("#chart");
+const width = +svg.attr("width");
+const height = +svg.attr("height");
+const outerRadius = Math.min(width, height) / 2 - 110;
+const innerRadius = outerRadius - 18;
+const loyaltyGap = 3;             // 内圈与外圈(皇冠)之间的间距
+
+const g = svg.append("g").attr("transform", `translate(${width/2},${height/2})`);
+
+// ============== 主绘制函数(可重绘) ==============
+let currentOrder = d3.range(brands.length);
+let selectedBrand = null;  // null = chord 视图;品牌 index = 详情视图
+
+function draw() {
+  g.selectAll("*").remove();
+  tooltip.style("visibility", "hidden");
+
+  if (selectedBrand !== null) {
+    g.attr("transform", null);
+    drawDetail(selectedBrand);
+    return;
+  }
+  g.attr("transform", `translate(${width/2},${height/2})`);
+  drawChord();
+}
+
+function drawChord() {
+  // 切换矩阵:对角线置 0,忠诚部分外凸显示,弦图只表达品牌切换
+  const filtered = brands.map((_, i) => brands.map((_, j) => {
+    if (i === j) return 0;
+    return rawMatrix[i][j];
+  }));
+
+  // 各品牌忠诚用户数(原对角线)与他牌流入数(filtered 已置对角线为 0,列和即纯流入)
+  const loyalty = brands.map((_, i) => rawMatrix[i][i]);
+  const inflows = brands.map((_, i) => d3.sum(filtered.map(r => r[i])));
+  // 内圈/外圈共用一套人数→厚度的换算(统一 px/人 标尺,跨圈跨品牌可比)
+  const maxCount = Math.max(d3.max(inflows), d3.max(loyalty));
+  const maxThicknessPx = 25;
+  const minThicknessPx = 7;
+  const thicknessOf = (n) => minThicknessPx + (n / maxCount) * (maxThicknessPx - minThicknessPx);
+
+  // chord 布局
+  const chordGen = d3.chord()
+    .padAngle(0.04)
+    .sortSubgroups(d3.descending)
+    .sortChords(d3.descending);
+
+  // 关键:弧长口径 = "当前持有该品牌" = loyalty + 列和(inflow),与 tooltip 百分比一致
+  // 因此对原矩阵做转置后再放上对角线 loyalty:
+  //   chordMatrix[i][j] = filtered[j][i]  (从 j 切换到 i 的人,挂在 i 一侧)
+  //   chordMatrix[i][i] = loyalty[i]      (使弧长包含忠诚人数,自环 ribbon 后续隐藏)
+  // 这样 row sum_i = loyalty[i] + Σ_j filtered[j][i] = 当前持有总人数
+  const orderedMatrix = currentOrder.map((bi, i) =>
+    currentOrder.map((bj, j) => i === j ? loyalty[bi] : filtered[bj][bi])
+  );
+  const chords = chordGen(orderedMatrix);
+  // 过滤掉对角线自环,只保留品牌之间的切换 ribbon
+  const visibleChords = chords.filter(c => c.source.index !== c.target.index);
+
+  // 内圈(group-arc)外边:innerRadius + 该品牌流入人数对应厚度
+  const innerOuterOf = (groupIdx) => innerRadius + thicknessOf(inflows[currentOrder[groupIdx]]);
+  // 外圈(皇冠):紧贴内圈外缘 + loyaltyGap,厚度按 loyalty 人数
+  const crownInnerOf = (groupIdx) => innerOuterOf(groupIdx) + loyaltyGap;
+  const crownOuterOf = (groupIdx) => crownInnerOf(groupIdx) + thicknessOf(loyalty[currentOrder[groupIdx]]);
+  // 标签固定放在最大可能外缘外侧,避免不同品牌标签位置抖动
+  const labelRadius = innerRadius + maxThicknessPx + loyaltyGap + maxThicknessPx + 8;
+
+  const arcGen = d3.arc()
+    .innerRadius(innerRadius)
+    .outerRadius(d => innerOuterOf(d.index));
+  const ribbonGen = d3.ribbon().radius(innerRadius);
+
+  // 忠诚用户外凸弧:厚度按 loyalty 人数(与内圈同一 px/人 比例尺)
+  const loyaltyArcGen = d3.arc()
+    .innerRadius(d => crownInnerOf(d.index))
+    .outerRadius(d => crownOuterOf(d.index))
+    .startAngle(d => d.startAngle)
+    .endAngle(d => d.endAngle);
+
+  // ===== 外圈弧 + 忠诚外凸(共享 hover) =====
+  const group = g.append("g")
+    .selectAll("g")
+    .data(chords.groups)
+    .join("g")
+    .style("cursor", "pointer")
+    .on("click", function(event, d) {
+      selectedBrand = currentOrder[d.index];
+      draw();
+    })
+    .on("mouseover", function(event, d) {
+      // 强化弹出:非相关 ribbon 降至 0.08,非该品牌弧/凸起降至 0.3
+      g.selectAll(".ribbon")
+        .style("opacity", r => (r.source.index === d.index || r.target.index === d.index) ? 0.9 : 0.08);
+      g.selectAll(".group-arc")
+        .style("opacity", arc => (arc.index === d.index) ? 1 : 0.3);
+      g.selectAll(".loyalty-arc")
+        .style("opacity", arc => (arc.index === d.index) ? 1 : 0.3);
+
+      // ===== 流出指示:在他牌弧的对应内弦段上覆盖本品牌色块 =====
+      // 每条 chord (i,j) 中:本品牌侧 = 流入本品牌;他牌侧 = 本品牌→他牌(流出)
+      // 厚度需要匹配对方品牌的内圈厚度(否则色块会盖到外圈或留白)
+      const hoveredIdx = d.index;
+      const myColor = color(currentOrder[hoveredIdx]);
+      const outflowArcGen = d3.arc()
+        .innerRadius(innerRadius)
+        .outerRadius(o => innerOuterOf(o.index));
+      const connectedChords = visibleChords.filter(c =>
+        c.source.index === hoveredIdx || c.target.index === hoveredIdx
+      );
+      g.append("g")
+        .attr("class", "outflow-overlay")
+        .style("pointer-events", "none")
+        .selectAll("path")
+        .data(connectedChords)
+        .join("path")
+        .attr("d", c => {
+          const otherSide = c.source.index === hoveredIdx ? c.target : c.source;
+          return outflowArcGen({
+            startAngle: otherSide.startAngle,
+            endAngle: otherSide.endAngle,
+            index: otherSide.index,
+          });
+        })
+        .attr("fill", myColor)
+        .attr("stroke", d3.rgb(myColor).darker(0.8))
+        .attr("stroke-width", 1.2)
+        .style("opacity", 0.95);
+
+      const brandIdx = currentOrder[d.index];
+      const brandName = brands[brandIdx];
+      const loyalUsers = loyalty[brandIdx];                                       // 原对角线
+      const inFromOthers = d3.sum(filtered.map(row => row[brandIdx]));            // 列和(对角线已为 0)
+      const outToOthers = d3.sum(filtered[brandIdx]);                             // 行和(对角线已为 0)
+      const currentTotal = loyalUsers + inFromOthers;                             // 当前持有该品牌总人数
+      const grandTotal = d3.sum(filtered.flat()) + d3.sum(loyalty);               // 全体受访者
+      const sharePct = ((currentTotal / grandTotal) * 100).toFixed(1);
+      const netFlow = inFromOthers - outToOthers;
+
+      // 色卡:外圈 = 皇冠亮色(同 loyalty-arc);内圈 = 主色(同 group-arc)
+      const innerSwatch = `<span style="display:inline-block;width:10px;height:10px;background:${color(brandIdx)};border:1px solid ${d3.rgb(color(brandIdx)).darker()};vertical-align:middle;margin-right:3px"></span>`;
+      const outerSwatch = `<span style="display:inline-block;width:10px;height:10px;background:${d3.rgb(color(brandIdx)).brighter(0.4)};border:1px solid ${d3.rgb(color(brandIdx)).darker(0.6)};vertical-align:middle;margin-right:3px"></span>`;
+
+      tooltip.html(`
+        <div class="name">${brandName}</div>
+        <div>当前持有:<b>${currentTotal.toLocaleString()}</b> 人(= 外圈+内圈,占整圈 <b>${sharePct}%</b>)</div>
+        <div style="margin-top:4px">├ 忠诚用户 ${outerSwatch}外圈:<b>${loyalUsers.toLocaleString()}</b></div>
+        <div>└ 从他牌切换而来 ${innerSwatch}内圈:<b>${inFromOthers.toLocaleString()}</b></div>
+        <div class="sub" style="margin-top:6px;color:#ffd089">原 ${brandName} 流走的用户:<b>${outToOthers.toLocaleString()}</b></div>
+        <div class="sub" style="color:#ffd089">↳ 已高亮为他牌弧上的 ${brandName} 色块</div>
+        <div class="sub" style="margin-top:4px">净流入 = <b>${netFlow >= 0 ? "+" : ""}${netFlow.toLocaleString()}</b></div>
+      `).style("visibility", "visible");
+    })
+    .on("mousemove", e => tooltip.style("left", (e.pageX+14)+"px").style("top", (e.pageY+14)+"px"))
+    .on("mouseout", () => {
+      g.selectAll(".ribbon").style("opacity", 0.65);
+      g.selectAll(".group-arc").style("opacity", 1);
+      g.selectAll(".loyalty-arc").style("opacity", 1);
+      g.selectAll(".outflow-overlay").remove();
+      tooltip.style("visibility", "hidden");
+    });
+
+  // 切换相关弧(弧长 = 该品牌的切换流总量)
+  group.append("path")
+    .attr("class", "group-arc")
+    .attr("fill", d => color(currentOrder[d.index]))
+    .attr("stroke", d => d3.rgb(color(currentOrder[d.index])).darker())
+    .attr("d", arcGen);
+
+  // 忠诚用户"皇冠"(往外凸,厚度按忠诚数缩放,显示不换品牌的人)
+  group.append("path")
+    .attr("class", "loyalty-arc")
+    .attr("fill", d => d3.rgb(color(currentOrder[d.index])).brighter(0.4))
+    .attr("stroke", d => d3.rgb(color(currentOrder[d.index])).darker(0.6))
+    .attr("stroke-width", 0.8)
+    .attr("d", loyaltyArcGen);
+
+  // ===== 外圈标签(放在忠诚外凸之外) =====
+  group.append("text")
+    .attr("class", "group-label")
+    .each(d => { d.angle = (d.startAngle + d.endAngle) / 2; })
+    .attr("dy", ".35em")
+    .attr("transform", d => `
+      rotate(${(d.angle * 180 / Math.PI - 90)})
+      translate(${labelRadius})
+      ${d.angle > Math.PI ? "rotate(180)" : ""}
+    `)
+    .attr("text-anchor", d => d.angle > Math.PI ? "end" : null)
+    .text(d => {
+      const brandIdx = currentOrder[d.index];
+      const totalUsers = loyalty[brandIdx] + d3.sum(filtered.map(r => r[brandIdx]));
+      return `${brands[brandIdx]} (${(totalUsers/1000).toFixed(1)}k)`;
+    });
+
+  // ===== Ribbons(渐变填充表达流向方向) =====
+  const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
+  defs.selectAll("*").remove();
+
+  visibleChords.forEach((c, i) => {
+    const grad = defs.append("linearGradient")
+      .attr("id", `grad-${i}`)
+      .attr("gradientUnits", "userSpaceOnUse")
+      .attr("x1", innerRadius * Math.cos((c.source.startAngle + c.source.endAngle)/2 - Math.PI/2))
+      .attr("y1", innerRadius * Math.sin((c.source.startAngle + c.source.endAngle)/2 - Math.PI/2))
+      .attr("x2", innerRadius * Math.cos((c.target.startAngle + c.target.endAngle)/2 - Math.PI/2))
+      .attr("y2", innerRadius * Math.sin((c.target.startAngle + c.target.endAngle)/2 - Math.PI/2));
+    grad.append("stop").attr("offset", "0%").attr("stop-color", color(currentOrder[c.source.index])).attr("stop-opacity", 0.9);
+    grad.append("stop").attr("offset", "100%").attr("stop-color", color(currentOrder[c.target.index])).attr("stop-opacity", 0.6);
+  });
+
+  g.append("g")
+    .selectAll("path")
+    .data(visibleChords)
+    .join("path")
+    .attr("class", "ribbon")
+    .attr("d", ribbonGen)
+    .attr("fill", (d, i) => `url(#grad-${i})`)
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 0.5)
+    .style("opacity", 0.65)
+    .on("mouseover", function(event, d) {
+      g.selectAll(".ribbon").style("opacity", r => r === d ? 0.95 : 0.08);
+      const aIdx = currentOrder[d.source.index];
+      const bIdx = currentOrder[d.target.index];
+      // 矩阵已转置:chordMatrix[i][j] = filtered[j][i]
+      // d.source.value = filtered[bIdx][aIdx] = "原 bIdx → 现 aIdx"
+      // d.target.value = filtered[aIdx][bIdx] = "原 aIdx → 现 bIdx"
+      tooltip.html(`
+        <div class="name">${brands[aIdx]} ↔ ${brands[bIdx]} 切换</div>
+        <div>原 ${brands[aIdx]} → 现 ${brands[bIdx]}:<b>${d.target.value.toLocaleString()}</b> 人</div>
+        <div>原 ${brands[bIdx]} → 现 ${brands[aIdx]}:<b>${d.source.value.toLocaleString()}</b> 人</div>
+        <div class="sub">双向切换合计:${(d.source.value + d.target.value).toLocaleString()}</div>
+      `).style("visibility", "visible");
+    })
+    .on("mousemove", e => tooltip.style("left", (e.pageX+14)+"px").style("top", (e.pageY+14)+"px"))
+    .on("mouseout", () => {
+      g.selectAll(".ribbon").style("opacity", 0.65);
+      tooltip.style("visibility", "hidden");
+    });
+}
+
+function drawDetail(brandIdx) {
+  const others = brands.map((_, i) => i).filter(i => i !== brandIdx);
+  const rows = others.map(i => ({
+    brand: i,
+    out: rawMatrix[brandIdx][i],   // 流出:原 brandIdx → 现 i
+    in:  rawMatrix[i][brandIdx],   // 流入:原 i → 现 brandIdx
+  })).sort((a, b) => (b.in + b.out) - (a.in + a.out));
+
+  const loyalUsers   = rawMatrix[brandIdx][brandIdx];
+  const inFromOthers = d3.sum(rawMatrix.map(r => r[brandIdx])) - loyalUsers;
+  const outToOthers  = d3.sum(rawMatrix[brandIdx]) - loyalUsers;
+  const currentTotal = loyalUsers + inFromOthers;
+  const grandTotal   = d3.sum(rawMatrix.flat());
+  const sharePct     = (currentTotal / grandTotal * 100).toFixed(1);
+  const loyaltyPct   = (loyalUsers / currentTotal * 100).toFixed(1);
+  const netFlow      = inFromOthers - outToOthers;
+
+  // ===== 顶部标题区(点击返回) =====
+  const titleG = g.append("g")
+    .style("cursor", "pointer")
+    .on("click", () => { selectedBrand = null; draw(); });
+
+  titleG.append("rect")
+    .attr("x", 0).attr("y", 0)
+    .attr("width", width).attr("height", 110)
+    .attr("fill", "transparent");
+
+  titleG.append("text")
+    .attr("x", width / 2).attr("y", 40)
+    .attr("text-anchor", "middle")
+    .style("font-size", "26px")
+    .style("font-weight", "bold")
+    .style("fill", color(brandIdx))
+    .text(brands[brandIdx]);
+
+  titleG.append("text")
+    .attr("x", width / 2).attr("y", 66)
+    .attr("text-anchor", "middle")
+    .style("font-size", "13px")
+    .style("fill", "#333")
+    .text(`当前持有 ${currentTotal.toLocaleString()} 人 · 市场份额 ${sharePct}%`);
+
+  titleG.append("text")
+    .attr("x", width / 2).attr("y", 86)
+    .attr("text-anchor", "middle")
+    .style("font-size", "12px")
+    .style("fill", "#666")
+    .text(`忠诚用户(没切换) ${loyalUsers.toLocaleString()} 人 · 占当前持有的 ${loyaltyPct}%`);
+
+  titleG.append("text")
+    .attr("x", width / 2).attr("y", 104)
+    .attr("text-anchor", "middle")
+    .style("font-size", "11px")
+    .style("fill", "#999")
+    .text("(点击此处的品牌名返回 chord 视图)");
+
+  // ===== 发散条形图 =====
+  const chartTop    = 150;
+  const chartBottom = 700;
+  const centerX     = width / 2;
+  const labelHalfW  = 60;
+  const maxBarW     = 240;
+  const maxValue    = d3.max(rows.flatMap(d => [d.in, d.out]));
+  const xScale      = d3.scaleLinear().domain([0, maxValue]).range([0, maxBarW]);
+  const rowHeight   = (chartBottom - chartTop - 30) / rows.length;
+  const barHeight   = Math.min(rowHeight * 0.55, 34);
+
+  // 列头
+  g.append("text")
+    .attr("x", centerX - labelHalfW - maxBarW / 2)
+    .attr("y", chartTop)
+    .attr("text-anchor", "middle")
+    .style("font-size", "12px")
+    .style("font-weight", "bold")
+    .style("fill", "#c0392b")
+    .text(`← 原 ${brands[brandIdx]} 流出到对方(人数)`);
+
+  g.append("text")
+    .attr("x", centerX + labelHalfW + maxBarW / 2)
+    .attr("y", chartTop)
+    .attr("text-anchor", "middle")
+    .style("font-size", "12px")
+    .style("font-weight", "bold")
+    .style("fill", "#27ae60")
+    .text(`对方流入到 ${brands[brandIdx]}(人数) →`);
+
+  // 中线
+  g.append("line")
+    .attr("x1", centerX).attr("x2", centerX)
+    .attr("y1", chartTop + 10).attr("y2", chartBottom)
+    .attr("stroke", "#ddd")
+    .attr("stroke-dasharray", "2 3");
+
+  // 数据行
+  rows.forEach((d, i) => {
+    const y = chartTop + 30 + i * rowHeight + rowHeight / 2;
+    const c = color(d.brand);
+    const outW = xScale(d.out);
+    const inW  = xScale(d.in);
+
+    // 中央品牌名背景块
+    g.append("rect")
+      .attr("x", centerX - labelHalfW)
+      .attr("y", y - barHeight / 2)
+      .attr("width", labelHalfW * 2)
+      .attr("height", barHeight)
+      .attr("fill", c)
+      .attr("opacity", 0.18);
+
+    g.append("text")
+      .attr("x", centerX)
+      .attr("y", y)
+      .attr("dy", ".35em")
+      .attr("text-anchor", "middle")
+      .style("font-size", "12px")
+      .style("font-weight", "600")
+      .style("fill", "#222")
+      .text(brands[d.brand]);
+
+    // 流出条(左)
+    g.append("rect")
+      .attr("x", centerX - labelHalfW - outW)
+      .attr("y", y - barHeight / 2)
+      .attr("width", outW)
+      .attr("height", barHeight)
+      .attr("fill", c)
+      .attr("opacity", 0.85);
+
+    g.append("text")
+      .attr("x", centerX - labelHalfW - outW - 6)
+      .attr("y", y)
+      .attr("dy", ".35em")
+      .attr("text-anchor", "end")
+      .style("font-size", "11px")
+      .style("fill", "#444")
+      .text(d.out.toLocaleString());
+
+    // 流入条(右)
+    g.append("rect")
+      .attr("x", centerX + labelHalfW)
+      .attr("y", y - barHeight / 2)
+      .attr("width", inW)
+      .attr("height", barHeight)
+      .attr("fill", c)
+      .attr("opacity", 0.85);
+
+    g.append("text")
+      .attr("x", centerX + labelHalfW + inW + 6)
+      .attr("y", y)
+      .attr("dy", ".35em")
+      .attr("text-anchor", "start")
+      .style("font-size", "11px")
+      .style("fill", "#444")
+      .text(d.in.toLocaleString());
+  });
+
+  // 底部汇总
+  const netColor = netFlow >= 0 ? "#27ae60" : "#c0392b";
+  g.append("text")
+    .attr("x", centerX)
+    .attr("y", chartBottom + 30)
+    .attr("text-anchor", "middle")
+    .style("font-size", "13px")
+    .style("fill", "#555")
+    .text(`流入合计 ${inFromOthers.toLocaleString()}  ·  流出合计 ${outToOthers.toLocaleString()}`);
+
+  g.append("text")
+    .attr("x", centerX)
+    .attr("y", chartBottom + 52)
+    .attr("text-anchor", "middle")
+    .style("font-size", "14px")
+    .style("font-weight", "bold")
+    .style("fill", netColor)
+    .text(`净流入 ${netFlow >= 0 ? "+" : ""}${netFlow.toLocaleString()} 人`);
+}
+
+const tooltip = d3.select("#tooltip");
+
+// ============== 图例 ==============
+const legend = d3.select("#legend");
+legend.append("span").style("color", "#666").style("margin-right", "6px").text("品牌色编码:");
+brands.forEach((b, i) => {
+  legend.append("span").attr("class", "legend-item")
+    .html(`<span class="legend-swatch" style="background:${color(i)}"></span>${b}`);
+});
+
+// ============== 排序切换 ==============
+d3.select("#sort").on("change", function() {
+  const v = this.value;
+  if (v === "default") {
+    currentOrder = d3.range(brands.length);
+  } else if (v === "total") {
+    // 与弧长口径保持一致:当前持有该品牌的总人数 = 忠诚 + 流入 = rawMatrix 第 i 列之和
+    const totals = brands.map((_, i) => d3.sum(rawMatrix.map(r => r[i])));
+    currentOrder = d3.range(brands.length).sort((a, b) => totals[b] - totals[a]);
+  }
+  draw();
+});
+
+// 初始绘制
+draw();
+</script>
+</body>
+</html>
