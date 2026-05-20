@@ -31,6 +31,22 @@
   .toolbar button:hover { background: #f0f0f0; }
   .toolbar .hint { color: #888; font-size: 12px; }
 
+  .cb-filter-group {
+    display: inline-flex;
+    gap: 0;
+    margin-left: 8px;
+  }
+  .cb-filter-group .cb-btn {
+    font-size: 12px; padding: 5px 10px; border: 1px solid #ccc;
+    background: #fff; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .cb-filter-group .cb-btn:first-child { border-radius: 4px 0 0 4px; }
+  .cb-filter-group .cb-btn:last-child { border-radius: 0 4px 4px 0; }
+  .cb-filter-group .cb-btn:not(:first-child) { border-left: none; }
+  .cb-filter-group .cb-btn:hover { background: #f0f0f0; }
+  .cb-filter-group .cb-btn.active { background: #333; color: #fff; border-color: #333; }
+
   #breadcrumb {
     padding: 8px 24px;
     background: #fff;
@@ -221,6 +237,12 @@
 
   <div class="toolbar">
     <button id="reset">↻ 回到根节点</button>
+    <div class="cb-filter-group">
+      <button class="cb-btn active" data-type="normal">正常视觉</button>
+      <button class="cb-btn" data-type="protanopia">红色盲</button>
+      <button class="cb-btn" data-type="deuteranopia">绿色盲</button>
+      <button class="cb-btn" data-type="tritanopia">蓝色盲</button>
+    </div>
     <span class="hint">点击弧段钻取 · 点击中心圆返回上一层 · 悬停查看详情</span>
   </div>
 
@@ -535,6 +557,43 @@ const radius = width / 6;
 
 const palette = d3.schemeTableau10; // 色盲友好
 
+// ============== 色盲模拟 ==============
+let cbFilter = "normal"; // "normal" | "protanopia" | "deuteranopia" | "tritanopia"
+
+const CB_MATRICES = {
+  protanopia: [
+    0.152286, 1.052583, -0.204868,
+    0.114503, 0.786281, 0.099216,
+    -0.003882, -0.048116, 1.051998
+  ],
+  deuteranopia: [
+    0.367322, 0.860646, -0.227968,
+    0.280085, 0.672501, 0.047413,
+    -0.011820, 0.042940, 0.968881
+  ],
+  tritanopia: [
+    1.255528, -0.076749, -0.178779,
+    -0.078411, 0.930809, 0.147602,
+    0.004733, 0.691367, 0.303900
+  ]
+};
+
+function transformColor(hex) {
+  if (cbFilter === "normal") return hex;
+  const m = CB_MATRICES[cbFilter];
+  const c = d3.color(hex);
+  if (!c) return hex;
+  const r = c.r / 255, g = c.g / 255, b = c.b / 255;
+  const rr = Math.min(1, Math.max(0, m[0]*r + m[1]*g + m[2]*b));
+  const gg = Math.min(1, Math.max(0, m[3]*r + m[4]*g + m[5]*b));
+  const bb = Math.min(1, Math.max(0, m[6]*r + m[7]*g + m[8]*b));
+  return d3.rgb(Math.round(rr*255), Math.round(gg*255), Math.round(bb*255)).formatHex();
+}
+
+function getFilteredPalette() {
+  return palette.map(c => transformColor(c));
+}
+
 // 顶层分类着色,子节点继承父色并按深度调亮度
 const root = d3.hierarchy(data)
   .sum(d => d.value)
@@ -560,7 +619,7 @@ function colorOf(d) {
   const c = d3.lab(base);
   const relativeDepth = d.depth - p.depth;
   c.l = Math.min(95, c.l + relativeDepth * 8);
-  return c.formatHex();
+  return transformColor(c.formatHex());
 }
 
 d3.partition().size([2 * Math.PI, root.height + 1])(root);
@@ -665,7 +724,7 @@ pctRingG.selectAll("path")
   .data(buildPctData(root), d => d.key)
   .join("path")
   .attr("class", "pct-ring")
-  .attr("fill", d => palette[d.colorIndex % palette.length])
+  .attr("fill", d => getFilteredPalette()[d.colorIndex % palette.length])
   .attr("fill-opacity", 0.9)
   .attr("d", d => pctArcGen(d))
   .each(function(d) { this.__prev__ = {...d}; });
@@ -687,13 +746,13 @@ function updatePctRing(node, transition) {
     .join(
       enter => enter.append("path")
         .attr("class", "pct-ring")
-        .attr("fill", d => palette[d.colorIndex % palette.length])
+        .attr("fill", d => getFilteredPalette()[d.colorIndex % palette.length])
         .attr("fill-opacity", 0)
         .attr("d", d => pctArcGen(d))
         .call(e => e.transition(transition).attr("fill-opacity", 0.9)),
       update => update
         .call(u => u.transition(transition)
-          .attr("fill", d => palette[d.colorIndex % palette.length])
+          .attr("fill", d => getFilteredPalette()[d.colorIndex % palette.length])
           .attrTween("d", function(d) {
             const prev = this.__prev__ || d;
             const iS = d3.interpolate(prev.startAngle, d.startAngle);
@@ -761,7 +820,7 @@ function updateLegend(node) {
   groups.forEach((d, i) => {
     legend.append("span")
       .attr("class", "legend-item")
-      .html(`<span class="legend-swatch" style="background:${palette[i % palette.length]}"></span>${d.data.name}`);
+      .html(`<span class="legend-swatch" style="background:${getFilteredPalette()[i % palette.length]}"></span>${d.data.name}`);
   });
 }
 updateLegend(root);
@@ -871,7 +930,7 @@ function updateTable(node) {
     .each(function(d, i) {
       const row = d3.select(this);
       const pct = d.value / parentValue;
-      const color = palette[i % palette.length];
+      const color = getFilteredPalette()[i % palette.length];
 
       row.select(".bar-fill")
         .style("width", (pct * 100).toFixed(1) + "%")
@@ -888,6 +947,21 @@ function updateTable(node) {
 }
 
 updateTable(root);
+
+// ============== 色盲滤镜切换 ==============
+function applyCBFilter() {
+  path.attr("fill", d => colorOf(d));
+  updatePctRing(currentRoot, svg.transition().duration(0));
+  updateLegend(currentRoot);
+  updateTable(currentRoot);
+}
+
+d3.selectAll(".cb-btn").on("click", function() {
+  d3.selectAll(".cb-btn").classed("active", false);
+  d3.select(this).classed("active", true);
+  cbFilter = this.dataset.type;
+  applyCBFilter();
+});
 
 // ============== 重置 ==============
 d3.select("#reset").on("click", () => clicked(null, root));
