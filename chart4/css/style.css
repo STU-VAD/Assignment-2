@@ -1,0 +1,294 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+#controls {
+    margin-bottom: 20px;
+    background: white;
+    padding: 12px 24px;
+    border-radius: 40px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 100%;
+    justify-content: center;
+}
+
+/* 模态弹窗遮罩 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 模态卡片 */
+.modal-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 24px;
+    width: 90%;
+    max-width: 520px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: center;
+    position: relative;
+}
+
+.modal-overlay.active .modal-card {
+    transform: scale(1) translateY(0);
+}
+
+.modal-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+}
+
+.modal-desc {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+/* 错误重新加载按钮 */
+.import-btn-primary {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.import-btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+    transform: translateY(-2px);
+}
+
+label {
+    font-weight: bold;
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+select {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+#map-container {
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    background-color: #e8f0f8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 975 / 610;
+}
+
+#bg-canvas {
+    background-color: #e8f0f8;
+}
+
+#bubble-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    pointer-events: auto;
+}
+
+#bubble-canvas:active {
+    cursor: grabbing;
+}
+
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    max-width: 260px;
+    line-height: 1.4;
+    font-family: monospace;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(2px);
+    left: 0;
+    top: 0;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+}
+
+.legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    pointer-events: auto;
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    cursor: pointer;
+}
+
+.legend h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.legend-color-bar {
+    width: 200px;
+    height: 12px;
+    background: linear-gradient(to right, #ffffcc, #fdcc8a, #fc8d59, #d7301f);
+    margin: 6px 0;
+    border-radius: 6px;
+}
+
+#pop-brush-container {
+    width: 200px;
+    height: 40px;
+    position: relative;
+}
+
+#pop-brush-container svg {
+    overflow: visible;
+}
+
+/* 覆盖 D3 默认 Brush 样式提升高级感 */
+.brush .selection {
+    fill: #ff8c00;
+    fill-opacity: 0.3;
+    stroke: #d95f0e;
+    stroke-width: 1.5px;
+    rx: 4px;
+    ry: 4px;
+}
+
+.brush .handle {
+    fill: #fff;
+    stroke: #d95f0e;
+    stroke-width: 1.5px;
+    rx: 3px;
+    ry: 3px;
+}
+
+.axis-bottom text {
+    fill: #666;
+    font-size: 9px;
+}
+.axis-bottom path,
+.axis-bottom line {
+    stroke: #ccc;
+}
+
+.note {
+    font-size: 10px;
+    color: #666;
+    margin-top: 8px;
+    text-align: right;
+}
+
+.control-tips {
+    margin-left: 20px;
+    font-size: 13px;
+    color: #555;
+}
+
+.legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+}
+
+.legend-section-title {
+    margin-top: 10px;
+}
+
+@media (max-width: 800px) {
+    .legend {
+        transform: scale(0.9);
+        right: 5px;
+        bottom: 5px;
+    }
+
+    #controls {
+        padding: 8px 16px;
+    }
+
+    .control-tips {
+        display: block;
+        margin-left: 0;
+        margin-top: 8px;
+        font-size: 11px;
+    }
+}
