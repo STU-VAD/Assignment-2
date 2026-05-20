@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>气泡地图</title>
+    <!-- 引入外部样式库 -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- D3 与 TopoJSON 外部数据依赖 -->
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+</head>
+
+<body>
+    <!-- 头部交互控制区 -->
+    <div id="controls">
+        <label>🗺️ 筛选州：</label>
+        <select id="state-select">
+            <option value="all">🌎 全部 (All)</option>
+        </select>
+        <span class="control-tips">💡 悬停气泡查看详情 | 点击图例大小项高亮对应气泡 | 选择州自动聚焦</span>
+    </div>
+
+    <!-- 地图及图例核心容器 -->
+    <div id="map-container">
+        <!-- 跟随悬停 tooltip 提示框 -->
+        <div class="tooltip"></div>
+        <!-- 静态地理底图层 Canvas (背景层) -->
+        <canvas id="bg-canvas"></canvas>
+        <!-- 动态人口气泡交互 Canvas (前景交互层) -->
+        <canvas id="bubble-canvas"></canvas>
+
+        <!-- 气泡及图例联动面板 -->
+        <div class="legend">
+            <h4>📊 人口气泡图例</h4>
+            <div><strong>颜色</strong> (人口对数)</div>
+            <div class="legend-color-bar"></div>
+            <div class="legend-labels">
+                <span>~1千</span><span>~1万</span><span>~10万</span><span>~100万+</span>
+            </div>
+            <div class="legend-section-title"><strong>大小</strong> (半径) — 拖动滑块筛选</div>
+            <div id="pop-brush-container" style="margin-top: 8px;"></div>
+            <div class="note">数据来源：2012-2016 ACS</div>
+        </div>
+    </div>
+
+    <!-- 数据加载失败模态弹窗 -->
+    <div id="error-modal" class="modal-overlay">
+        <div class="modal-card" style="border-top: 4px solid #ef4444;">
+            <div class="modal-title" style="color: #ef4444; font-size: 22px;">⚠️ 数据加载失败</div>
+            <div class="modal-desc" id="error-desc" style="text-align: left; margin-top: 16px; line-height: 1.6; color: #475569;">
+                <!-- 错误信息由 JS 动态写入 -->
+            </div>
+            <button onclick="window.location.reload()" class="import-btn-primary">
+                🔄 重新加载页面
+            </button>
+        </div>
+    </div>
+
+    <!-- 现代浏览器原生 ES6 Modules 模块化启动入口 -->
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
