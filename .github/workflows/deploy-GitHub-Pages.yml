@@ -1,0 +1,44 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chart4/**'
+      - '.github/workflows/deploy-GitHub-Pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Assemble chart4 site
+        run: |
+          mkdir -p _site/chart4
+          cp chart4/index.html _site/chart4/
+          cp -r chart4/css chart4/js _site/chart4/
+          cp chart4/counties-albers-10m.json chart4/population.json _site/chart4/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@main
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@main
