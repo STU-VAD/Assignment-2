@@ -252,7 +252,7 @@
   <div id="main-container">
     <div id="tree-table">
       <div class="table-header">
-        <span class="col-name">名称</span>
+        <span class="col-name">flare <small style="font-weight:normal;color:#999;">（占父类/总体）</small></span>
         <span class="col-value">值</span>
         <span class="col-children">子项</span>
       </div>
@@ -894,8 +894,8 @@ function updateTable(node) {
   const parentValue = node.value;
   const tbody = d3.select("#table-body");
 
-  d3.select(".table-header .col-name").text(
-    node.depth === 0 ? "名称" : node.data.name
+  d3.select(".table-header .col-name").html(
+    node.data.name + ' <small style="font-weight:normal;color:#999;">（占父类/总体）</small>'
   );
 
   const rows = tbody.selectAll(".table-row")
@@ -930,13 +930,14 @@ function updateTable(node) {
     .each(function(d, i) {
       const row = d3.select(this);
       const pct = d.value / parentValue;
+      const pctGlobal = d.value / totalValue;
       const color = getFilteredPalette()[i % palette.length];
 
       row.select(".bar-fill")
         .style("width", (pct * 100).toFixed(1) + "%")
         .style("background", color);
       row.select(".bar-label")
-        .text((pct * 100).toFixed(1) + "%");
+        .html((pct * 100).toFixed(1) + "% <span style='color:#aaa;'>/ " + (pctGlobal * 100).toFixed(1) + "%</span>");
       row.select(".row-name")
         .text(d.data.name);
       row.select(".row-value")
