@@ -1,33 +1,19 @@
-import { CONFIG } from "./config.js";
+import * as d3 from 'd3';
+import { CONFIG, countiesData as usTopo, populationData } from "./config.js";
 import { UIManager } from "./ui.js";
 import { MapRenderer } from "./map.js";
 import { BubbleChart } from "./bubbles.js";
 
 /**
  * 气泡地图启动引导系统 (总生命周期调度)
- * 启动后始终尝试通过异步 HTTP 请求动态拉取数据文件，发生异常（如跨域拦截、文件丢失）则优雅弹窗警告。
  */
-(async function boot() {
+(function boot() {
     try {
-        // 始终并发请求获取当前目录下的 TopoJSON 地图和人口 JSON 数据文件
-        const [topoData, popData] = await Promise.all([
-            d3.json("counties-albers-10m.json"),
-            d3.json("population.json")
-        ]);
-
-        // 数据拉取成功，初始化整个图表可视化系统
-        initVisualization(topoData, popData);
+        initVisualization(usTopo, populationData);
     } catch (error) {
-        console.error("Failed to fetch Map/Population datasets:", error);
-
-        // 捕获异步拉取网络错误，优雅地显示高颜值错误提示弹窗
+        console.error("Failed to initialize visualization:", error);
         UIManager.showErrorModal(`
-            <strong>无法自动加载地图或人口数据文件。</strong><br><br>
-            ⚠️ <strong>可能原因及解决建议：</strong><br>
-            1. <strong>直接双击了 HTML 打开：</strong>出于浏览器对文件安全的防范机制，本地 <code>file://</code> 协议会阻断脚本进行网络拉取。请确保通过 <strong>本地 Web 服务器</strong>（如 VS Code 的 Live Server 插件）启动该页面运行。<br>
-            2. <strong>数据文件丢失：</strong>请检查工作区当前目录下是否未缺失必要的数据文件：<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;📄 <code>counties-albers-10m.json</code><br>
-            &nbsp;&nbsp;&nbsp;&nbsp;📄 <code>population.json</code><br><br>
+            <strong>初始化可视化失败。</strong><br><br>
             <span style="color: #ef4444; font-size: 11px; display: block; background: #fee2e2; padding: 6px 12px; border-radius: 6px;">
                 🔴 错误详情: ${error.message || error}
             </span>
@@ -127,21 +113,16 @@ function initVisualization(usTopo, populationData) {
             const found = bubbleChart.detectHover(transform, mouseX, mouseY, activePopRange, select.value);
 
             if (found) {
-                // 仅当悬停节点改变时重绘气泡交互层
-                if (bubbleChart.hoveredCounty !== found) {
-                    bubbleChart.hoveredCounty = found;
+                if (bubbleChart.setHovered(found)) {
                     bubbleChart.draw(transform, activePopRange, select.value);
                 }
 
-                // 显示 tooltip，配合 translate3d 触发 GPU 硬件加速平移
                 tooltip.style("opacity", 1)
                     .html(`<strong>${found.countyName}</strong><br/>🏛️ 州: ${found.stateName}<br/>👥 人口: ${found.population.toLocaleString()}`);
 
                 tooltip.style("transform", `translate3d(${mouseX + 15}px, ${mouseY + 20}px, 0)`);
             } else {
-                // 未命中气泡，清除悬浮焦点并重画交互层
-                if (bubbleChart.hoveredCounty !== null) {
-                    bubbleChart.hoveredCounty = null;
+                if (bubbleChart.clearHovered()) {
                     bubbleChart.draw(transform, activePopRange, select.value);
                 }
                 tooltip.style("opacity", 0);
@@ -151,8 +132,7 @@ function initVisualization(usTopo, populationData) {
 
     // B. 鼠标移出交互 Canvas 清除高亮
     bubbleCanvas.addEventListener("mouseleave", () => {
-        if (bubbleChart.hoveredCounty !== null) {
-            bubbleChart.hoveredCounty = null;
+        if (bubbleChart.clearHovered()) {
             bubbleChart.draw(transform, activePopRange, select.value);
         }
         tooltip.style("opacity", 0);
@@ -185,10 +165,11 @@ function initVisualization(usTopo, populationData) {
         .call(xAxis)
         .select(".domain").remove(); // 隐藏主轴线使视觉更干净
 
-    // 创建 Brush
+    // 创建 Brush (拆分 brush/end 事件：拖动中仅重绘，松手时才重新排序)
     const brush = d3.brushX()
         .extent([[brushMargin.left, 0], [brushWidth - brushMargin.right, brushHeight]])
-        .on("brush end", brushed);
+        .on("brush", onBrush)
+        .on("end", onBrushEnd);
 
     const brushGroup = brushSvg.append("g")
         .attr("class", "brush")
@@ -200,20 +181,24 @@ function initVisualization(usTopo, populationData) {
         brushGroup.call(brush.move, null); // 清除选区
     });
 
-    function brushed() {
+    function updateActivePopRange() {
         const selection = d3.event.selection;
-        bubbleChart.hoveredCounty = null;
-
         if (!selection) {
-            // 取消选择，显示全部
             activePopRange = null;
         } else {
-            // 将像素区间转换为真实的人口数值区间
-            const rangeMin = brushScale.invert(selection[0]);
-            const rangeMax = brushScale.invert(selection[1]);
-            activePopRange = [rangeMin, rangeMax];
+            activePopRange = [brushScale.invert(selection[0]), brushScale.invert(selection[1])];
         }
+    }
 
+    function onBrush() {
+        updateActivePopRange();
+        bubbleChart.clearHovered();
+        bubbleChart.draw(transform, activePopRange, select.value);
+    }
+
+    function onBrushEnd() {
+        updateActivePopRange();
+        bubbleChart.clearHovered();
         bubbleChart.updateDrawList(activePopRange, select.value);
         bubbleChart.draw(transform, activePopRange, select.value);
     }
@@ -223,13 +208,11 @@ function initVisualization(usTopo, populationData) {
     UIManager.populateStateSelect(stateSet);
 
     select.addEventListener("change", () => {
-        bubbleChart.hoveredCounty = null;
+        bubbleChart.clearHovered();
 
-        // 切换行政区划时，重置刷选框
         brushGroup.call(brush.move, null);
         activePopRange = null;
 
-        // 重新缓存优先级排序列表并进行平滑聚焦变焦
         bubbleChart.updateDrawList(activePopRange, select.value);
         zoomToState(select.value);
         bubbleChart.draw(transform, activePopRange, select.value);
@@ -275,19 +258,24 @@ function initVisualization(usTopo, populationData) {
         }
     }
 
-    // E. 自适应窗口拉伸处理
+    // E. 自适应窗口拉伸处理 (rAF 防抖，避免高频 resize 事件重复渲染)
+    let resizePending = false;
     function resizeAll() {
-        const rect = bubbleCanvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const w = rect.width * dpr;
-        const h = rect.height * dpr;
+        if (resizePending) return;
+        resizePending = true;
+        requestAnimationFrame(() => {
+            resizePending = false;
+            const rect = bubbleCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const w = rect.width * dpr;
+            const h = rect.height * dpr;
 
-        // 同步拉伸底图层和气泡图层物理像素尺寸
-        bgCanvas.width = bubbleCanvas.width = w;
-        bgCanvas.height = bubbleCanvas.height = h;
+            bgCanvas.width = bubbleCanvas.width = w;
+            bgCanvas.height = bubbleCanvas.height = h;
 
-        mapRenderer.draw(transform);
-        bubbleChart.draw(transform, activePopRange, select.value);
+            mapRenderer.draw(transform);
+            bubbleChart.draw(transform, activePopRange, select.value);
+        });
     }
 
     window.addEventListener("resize", resizeAll);

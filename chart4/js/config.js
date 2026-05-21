@@ -15,10 +15,11 @@ export const CONFIG = {
     sizeThresholds: [20000, 100000, 500000, 2000000],
 
     // 气泡渲染范围半径 (单位: px，映射关系为 sqrt 缩放)
-    radiusRange: [2, 32],
-
-    // 缓存数据库配置
-    dbName: "BubbleMapDB",
-    dbVersion: 1,
-    storeName: "dataset"
+    radiusRange: [2, 32]
 };
+
+// 导入 JSON 数据
+import countiesData from '../counties-albers-10m.json';
+import populationData from '../population.json';
+
+export { countiesData, populationData };

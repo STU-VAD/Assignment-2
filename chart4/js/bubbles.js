@@ -1,3 +1,4 @@
+import * as d3 from 'd3';
 import { CONFIG } from "./config.js";
 
 /**
@@ -44,59 +45,30 @@ export class BubbleChart {
 
         // 3. 排序后的绘制列表缓存
         this.drawList = [];
-        this.hoveredCounty = null; // 当前被鼠标悬停的高亮焦点县数据
+        this.hoveredCounty = null;
     }
 
-    /**
-     * 校验当前气泡是否在指定的图例分档范围内
-     * @param {number} pop 人口值
-     * @param {number} legendIdx 图例索引 (0-3)
-     * @returns {boolean}
-     */
-    isBubbleInLegendRange(pop, legendIdx) {
-        if (legendIdx === -1) return false;
-        const minPop = legendIdx === 0 ? 0 : CONFIG.sizeThresholds[legendIdx - 1];
-        if (legendIdx === CONFIG.sizeThresholds.length - 1) {
-            return pop > minPop;
-        }
-        return pop > minPop && pop <= CONFIG.sizeThresholds[legendIdx];
-    }
-
-    /**
-     * 根据人口规模计算对应的图例档次索引
-     * @param {number} pop 人口值
-     * @returns {number}
-     */
-    getLegendIndex(pop) {
-        for (let i = 0; i < CONFIG.sizeThresholds.length; i++) {
-            if (pop <= CONFIG.sizeThresholds[i]) return i;
-        }
-        return CONFIG.sizeThresholds.length - 1;
+    _isStateMatch(d, selectedState) {
+        return selectedState === "all" || d.stateName === selectedState;
     }
 
     /**
      * 计算单个县气泡在特定交互场景下的层级绘制优先级
      * @param {Object} d 单个县数据
      * @param {Array<number>|null} activePopRange 激活的人口上下限区间 [min, max]
-     * @param {string} selectedState 选中的州名称 ("all"表示全部)
+     * @param {string} selectedState 选中的州名称 (“all”表示全部)
      * @returns {number} 优先级权重 (越大越在上方绘制)
      */
     getBubbleLayerPriority(d, activePopRange, selectedState) {
-        let priority = d.baseIndex; // 基础层级，保持“小人口在下，大人口在上”的数组默认升序规则
-
-        // 1. 行政州级筛选过滤 (未选中州的气泡强制权重下沉，表现为底层变淡)
-        const isStateMatch = (selectedState === "all" || d.stateName === selectedState);
-        if (!isStateMatch) return priority - 10000;
-
-        // 2. 连续范围划选联动高亮 (范围匹配项获得强加成，未匹配项下沉)
+        let priority = d.baseIndex;
+        if (!this._isStateMatch(d, selectedState)) return priority - 10000;
         if (activePopRange) {
             if (d.population >= activePopRange[0] && d.population <= activePopRange[1]) {
-                priority += 20000; // 符合高亮大小范围，提升至中高层
+                priority += 20000;
             } else {
-                priority -= 5000;  // 不符合高亮大小范围，稍微下沉
+                priority -= 5000;
             }
         }
-
         return priority;
     }
 
@@ -112,6 +84,45 @@ export class BubbleChart {
             const pB = this.getBubbleLayerPriority(b, activePopRange, selectedState);
             return pA - pB;
         });
+    }
+
+    /**
+     * 根据交互状态计算单个气泡的渲染样式 (扁平化条件，避免 draw() 中 3 层嵌套)
+     */
+    getDisplayStyle(d, activePopRange, selectedState) {
+        const stateMatch = this._isStateMatch(d, selectedState);
+        const isAll = selectedState === "all";
+
+        if (!stateMatch) {
+            if (activePopRange) {
+                return { fillOpacity: 0.1, strokeColor: "#ccc", strokeWidth: 0.3, strokeOpacity: 0.5 };
+            }
+            return { fillOpacity: 0.2, strokeColor: "#333", strokeWidth: 0.5, strokeOpacity: 0.1 };
+        }
+
+        const inRange = !activePopRange || (d.population >= activePopRange[0] && d.population <= activePopRange[1]);
+        if (!inRange) {
+            return { fillOpacity: 0.1, strokeColor: "#333", strokeWidth: 0.5, strokeOpacity: 0 };
+        }
+
+        return {
+            fillOpacity: isAll ? 0.7 : 0.9,
+            strokeColor: "#333",
+            strokeWidth: 0.5,
+            strokeOpacity: isAll ? 0.5 : 0.8
+        };
+    }
+
+    setHovered(county) {
+        if (this.hoveredCounty === county) return false;
+        this.hoveredCounty = county;
+        return true;
+    }
+
+    clearHovered() {
+        if (this.hoveredCounty === null) return false;
+        this.hoveredCounty = null;
+        return true;
     }
 
     /**
@@ -146,66 +157,26 @@ export class BubbleChart {
 
         // 3. 循环绘制可视范围内的矢量圆
         this.drawList.forEach(d => {
-            // 当前悬停的焦点元素最后单独在最顶层绘制，这里先跳过它
             if (this.hoveredCounty && this.hoveredCounty.fips === d.fips) return;
 
-            let fillOpacity = 0.7;
-            let strokeColor = "#333";
-            let strokeWidth = 0.5;
-            let strokeOpacity = 0.5;
-
-            const isStateMatch = (selectedState === "all" || d.stateName === selectedState);
-
-            if (activePopRange) {
-                // 滑块交互状态下的参数确定
-                if (!isStateMatch) {
-                    fillOpacity = 0.1;
-                    strokeColor = "#ccc";
-                    strokeWidth = 0.3;
-                } else if (d.population >= activePopRange[0] && d.population <= activePopRange[1]) {
-                    // 恢复正常状态显示，不加特殊高亮
-                    fillOpacity = selectedState === "all" ? 0.7 : 0.9;
-                    strokeOpacity = selectedState === "all" ? 0.5 : 0.8;
-                } else {
-                    fillOpacity = 0.1;
-                    strokeOpacity = 0; // 隐藏边框
-                }
-            } else {
-                // 常规状态下的透明度与线宽确定
-                if (!isStateMatch) {
-                    fillOpacity = 0.2;
-                    strokeOpacity = 0.1;
-                } else {
-                    fillOpacity = selectedState === "all" ? 0.7 : 0.9;
-                    strokeOpacity = selectedState === "all" ? 0.5 : 0.8;
-                }
-            }
-
+            const style = this.getDisplayStyle(d, activePopRange, selectedState);
             const r = this.radiusScale(d.population);
-            const pad_base = (strokeWidth + 2) / transform.k;
+            const pad_base = (style.strokeWidth + 2) / transform.k;
 
-            // --- 【性能优化 1：视口剔除 Viewport Culling】 ---
-            const bubbleMinX = d.centroid[0] - r - pad_base;
-            const bubbleMaxX = d.centroid[0] + r + pad_base;
-            const bubbleMinY = d.centroid[1] - r - pad_base;
-            const bubbleMaxY = d.centroid[1] + r + pad_base;
-
-            if (bubbleMaxX < minX || bubbleMinX > maxX || bubbleMaxY < minY || bubbleMinY > maxY) {
-                return; // 视口外元素剔除，不渲染
+            if (d.centroid[0] + r + pad_base < minX || d.centroid[0] - r - pad_base > maxX ||
+                d.centroid[1] + r + pad_base < minY || d.centroid[1] - r - pad_base > maxY) {
+                return;
             }
 
-            // --- 【全矢量原生硬件加速直绘】 ---
             ctx.save();
             ctx.beginPath();
             ctx.arc(d.centroid[0], d.centroid[1], r, 0, 2 * Math.PI);
-
             ctx.fillStyle = d.color;
-            ctx.globalAlpha = fillOpacity;
+            ctx.globalAlpha = style.fillOpacity;
             ctx.fill();
-
-            ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = strokeWidth;
-            ctx.globalAlpha = strokeOpacity;
+            ctx.strokeStyle = style.strokeColor;
+            ctx.lineWidth = style.strokeWidth;
+            ctx.globalAlpha = style.strokeOpacity;
             ctx.stroke();
             ctx.restore();
         });
@@ -252,17 +223,13 @@ export class BubbleChart {
         const mapX = xTemp * (CONFIG.baseWidth / rect.width);
         const mapY = yTemp * (CONFIG.baseHeight / rect.height);
 
-        // 3. 逆序线性检查（因为 countiesData 降序排列，即大县在前小县在后，后绘制的在上层。反向扫描可以保证最先捕获最顶层）
-        for (let i = this.countiesData.length - 1; i >= 0; i--) {
-            const d = this.countiesData[i];
-            const isStateMatch = (selectedState === "all" || d.stateName === selectedState);
-            if (!isStateMatch) continue;
+        // 3. 逆序遍历 drawList（按视觉层级排序），保证最先命中最顶层气泡
+        for (let i = this.drawList.length - 1; i >= 0; i--) {
+            const d = this.drawList[i];
+            if (!this._isStateMatch(d, selectedState)) continue;
 
-            // 4. 新增：非高亮气泡鼠标穿透过滤
             if (activePopRange) {
-                if (d.population < activePopRange[0] || d.population > activePopRange[1]) {
-                    continue; // 当前气泡未被滑块范围圈中，忽略交互（穿透）
-                }
+                if (d.population < activePopRange[0] || d.population > activePopRange[1]) continue;
             }
 
             const dx = mapX - d.centroid[0];
@@ -275,23 +242,5 @@ export class BubbleChart {
         }
 
         return null;
-    }
-
-    /**
-     * 自适应画布拉伸与重绘
-     * @param {d3.ZoomTransform} transform 
-     * @param {Array<number>|null} activePopRange 
-     * @param {string} selectedState 
-     */
-    resize(transform, activePopRange, selectedState) {
-        const rect = this.bubbleCanvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const w = rect.width * dpr;
-        const h = rect.height * dpr;
-
-        this.bubbleCanvas.width = w;
-        this.bubbleCanvas.height = h;
-
-        this.draw(transform, activePopRange, selectedState);
     }
 }
