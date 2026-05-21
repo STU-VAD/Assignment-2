@@ -4,7 +4,11 @@ on:
   push:
     branches: [main]
     paths:
+      - 'chart1/**'
+      - 'chart2/**'
+      - 'chart3/**'
       - 'chart4/**'
+      - 'index.html'
       - '.github/workflows/deploy-GitHub-Pages.yml'
   workflow_dispatch:
 
@@ -27,12 +31,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@main
 
-      - name: Assemble chart4 site
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build chart4
         run: |
-          mkdir -p _site/chart4
-          cp chart4/index.html _site/chart4/
-          cp -r chart4/css chart4/js _site/chart4/
-          cp chart4/counties-albers-10m.json chart4/population.json _site/chart4/
+          cd chart4
+          bun install
+          bun run build
+
+      - name: Assemble all projects site
+        run: |
+          mkdir -p _site/chart1 _site/chart2 _site/chart3 _site/chart4
+          cp index.html _site/
+          cp chart1/chart1.html _site/chart1/
+          cp chart2/chart2.html _site/chart2/
+          cp chart3/quakespotter_v0.4.html _site/chart3/
+          cp chart4/dist/index.html _site/chart4/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@main
