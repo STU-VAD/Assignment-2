@@ -262,10 +262,10 @@ sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
 add_header(sl, 'Chart 1 · 弦图 Chord Diagram', '原图分析')
 
-add_image_safe(sl, 'ppt/picture/chart1-origin.png', 0.5, 0.85, 2.8, 1.8)
-add_text(sl, 0.5, 2.7, 2.8, 0.2, '原始弦图 — 正常视觉', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
-add_image_safe(sl, 'chart1/original_chord_deuteranopia.jpg', 0.5, 3.0, 2.8, 1.3)
-add_text(sl, 0.5, 4.35, 2.8, 0.2, '红色盲模拟 — 品红/粉色不可区分', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'ppt/picture/chart1-origin.png', 0.5, 0.85, 2.8, 1.6)
+add_text(sl, 0.5, 2.5, 2.8, 0.2, '原始弦图 — 正常视觉', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart1/original_chord_deuteranopia.jpg', 0.5, 2.8, 2.8, 1.4)
+add_text(sl, 0.5, 4.25, 2.8, 0.2, '红色盲模拟 — 品红/粉色不可区分', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
 
 issues = [
     ('1', '色盲不友好', 'd3.schemeCategory10 调色板，8% 男性有色觉障碍'),
@@ -283,10 +283,10 @@ sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
 add_header(sl, 'Chart 1 · 弦图改进', '配色 · 方向 · 交互')
 
-add_image_safe(sl, 'chart1/colorblind_friendly.png', 0.5, 0.85, 2.8, 1.6)
-add_text(sl, 0.5, 2.5, 2.8, 0.2, 'Tableau10 调色板 — 色相间距更大', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
-add_image_safe(sl, 'chart1/hover_interaction.png', 0.5, 2.8, 2.8, 1.6)
-add_text(sl, 0.5, 4.45, 2.8, 0.2, '悬停淡化非相关品牌，强化目标', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart1/colorblind_friendly.png', 0.5, 0.85, 2.8, 1.4)
+add_text(sl, 0.5, 2.3, 2.8, 0.2, 'Tableau10 调色板 — 色相间距更大', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart1/hover_interaction.png', 0.5, 2.6, 2.8, 1.4)
+add_text(sl, 0.5, 4.05, 2.8, 0.2, '悬停淡化非相关品牌，强化目标', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
 
 imps = [
     ('色盲安全配色', '替换为 d3.schemeTableau10，7 品牌色对比度更友好'),
@@ -303,8 +303,8 @@ sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
 add_header(sl, 'Chart 1 · 品牌详情页', '深度交互')
 
-add_image_safe(sl, 'chart1/brand_detail.png', 0.5, 0.85, 4, 3.5)
-add_text(sl, 0.5, 4.4, 4, 0.2, '点击品牌进入详情 — 整个 SVG 替换为详情视图', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart1/brand_detail.png', 0.5, 0.85, 4, 3.2)
+add_text(sl, 0.5, 4.1, 4, 0.2, '点击品牌进入详情 — 整个 SVG 替换为详情视图', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
 
 add_text(sl, 5, 0.85, 4.5, 0.3, '详情页功能', size=14, color=CYAN, bold=True)
 features = [
@@ -313,12 +313,18 @@ features = [
     ('颜色高亮区分', '不同指标使用不同颜色编码'),
 ]
 for i, (title, desc) in enumerate(features):
-    add_imp_card(sl, 5, 1.3 + i * 0.6, 4.4, title, desc)
+    add_imp_card(sl, 5, 1.3 + i * 0.55, 4.4, title, desc)
+
+# Stevens' Power Law theory note
+add_rect(sl, 5, 3.05, 4.4, 0.65, RGBColor(0x1a, 0x2a, 0x3a))
+add_rect(sl, 5, 3.05, 0.04, 0.65, CYAN)
+add_text(sl, 5.15, 3.07, 4.1, 0.2, "Stevens 幂律 (Stevens' Power Law)", size=9, color=CYAN, bold=True)
+add_text(sl, 5.15, 3.27, 4.1, 0.4, '感知强度 = k × 物理强度^β。面积 β≈0.7、长度 β≈1.0。详情页用柱状图（长度编码）替代弧段面积。', size=8, color=LGRAY)
 
 # Metrics
 for i, (val, label) in enumerate([('5', '交互层次'), ('3', '视觉编码维度'), ('7', '品牌色盲安全色')]):
     x = 5 + i * 1.5
-    shape = add_rect(sl, x, 3.5, 1.3, 0.9, BG_DARK)
+    shape = add_rect(sl, x, 3.85, 1.3, 0.85, BG_DARK)
     tf = shape.text_frame
     tf.word_wrap = True
     tf.margin_top = Inches(0.1)
@@ -352,12 +358,12 @@ for img, label, x, y in imgs6:
 issues6 = [
     ('1', '彩虹色阶色盲灾难', '鲜艳颜色对色盲用户几乎不传递信息'),
     ('2', '深钻后颜色退化', '同层兄弟节点保留原始微小变体，放大后无法区分'),
-    ('3', '面积感知陷阱', 'Stevens 幂律（指数 0.7）导致两倍大扇区看起来只大 70%'),
+    ('3', '面积感知陷阱', 'Stevens 幂律 β≈0.7：2 倍大扇区感知只大 1.62 倍'),
     ('4', '无全局定位', '钻取到深层后非聚焦节点消失'),
     ('5', '信息空间浪费', '中心圆仅作返回热区，hover 只有原生 title'),
 ]
 for i, (num, title, desc) in enumerate(issues6):
-    add_issue_card(sl, 5.9, 0.85 + i * 0.6, 3.6, num, title, desc)
+    add_issue_card(sl, 5.9, 0.85 + i * 0.52, 3.6, num, title, desc)
 
 add_source(sl, '原图来源：', 'https://observablehq.com/@d3/zoomable-sunburst')
 
@@ -366,10 +372,10 @@ sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
 add_header(sl, 'Chart 2 · 旭日图改进（上）', '重新着色')
 
-add_image_safe(sl, 'chart2/image-1.png', 0.5, 0.85, 2.5, 1.5)
-add_text(sl, 0.5, 2.4, 2.5, 0.2, '色盲用户 — 色相区分度显著提升', size=8, color=DGRAY, align=PP_ALIGN.CENTER)
-add_image_safe(sl, 'chart2/image-9.png', 0.5, 2.7, 2.5, 1.5)
-add_text(sl, 0.5, 4.25, 2.5, 0.2, '深钻后同级兄弟始终有足够色相区分', size=8, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart2/image-1.png', 0.5, 0.85, 2.5, 1.4)
+add_text(sl, 0.5, 2.3, 2.5, 0.2, '色盲用户 — 色相区分度显著提升', size=8, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart2/image-9.png', 0.5, 2.6, 2.5, 1.4)
+add_text(sl, 0.5, 4.05, 2.5, 0.2, '深钻后同级兄弟始终有足够色相区分', size=8, color=DGRAY, align=PP_ALIGN.CENTER)
 
 imps7 = [
     ('Tableau10 调色板', '色相间距更大，对色盲更友好'),
@@ -389,12 +395,12 @@ add_header(sl, 'Chart 2 · 旭日图改进（下）', '联动 · 导航 · 中�
 imgs8 = [
     ('chart2/image-8.png', '左侧表格 + 条形图 + 精确数值', 0.5, 0.85),
     ('chart2/image-7.png', '根→A→B→C 路径可点击跳转', 3.2, 0.85),
-    ('chart2/image-6.png', '中心显示名称/总数值/百分比', 0.5, 2.35),
-    ('chart2/image-3.png', '自定义 Tooltip 效果', 3.2, 2.35),
+    ('chart2/image-6.png', '中心显示名称/总数值/百分比', 0.5, 2.25),
+    ('chart2/image-3.png', '自定义 Tooltip 效果', 3.2, 2.25),
 ]
 for img, label, x, y in imgs8:
-    add_image_safe(sl, img, x, y, 2.4, 1.2)
-    add_text(sl, x, y + 1.25, 2.4, 0.2, label, size=8, color=DGRAY, align=PP_ALIGN.CENTER)
+    add_image_safe(sl, img, x, y, 2.4, 1.15)
+    add_text(sl, x, y + 1.2, 2.4, 0.2, label, size=8, color=DGRAY, align=PP_ALIGN.CENTER)
 
 imps8 = [
     ('文件管理器风格表格', '每个子项一行带彩色条形图，旁边标注精确数值和百分比'),
@@ -405,6 +411,12 @@ imps8 = [
 ]
 for i, (title, desc) in enumerate(imps8):
     add_imp_card(sl, 5.9, 0.85 + i * 0.55, 3.6, title, desc)
+
+# Cleveland & McGill theory note
+add_rect(sl, 5.9, 3.7, 3.6, 0.65, RGBColor(0x1a, 0x2a, 0x3a))
+add_rect(sl, 5.9, 3.7, 0.04, 0.65, CYAN)
+add_text(sl, 6.05, 3.72, 3.3, 0.2, 'Cleveland & McGill 编码排序', size=9, color=CYAN, bold=True)
+add_text(sl, 6.05, 3.92, 3.3, 0.4, '位置 > 长度 > 角度 > 面积。条形图用长度编码（第 2），精度远优于弧段面积（第 4）。', size=8, color=LGRAY)
 
 # Remaining limitations
 add_rect(sl, 0.5, 4.6, 9, 0.4, RGBColor(0x2a, 0x1a, 0x1a))
@@ -436,27 +448,33 @@ for i, (num, title, desc) in enumerate(issues9):
     col = i % 2
     row = i // 2
     x = 0.5 + col * 4.75
-    y = 3.5 + row * 0.65
+    y = 3.5 + row * 0.55
     add_issue_card(sl, x, y, 4.4, num, title, desc)
 
-add_source(sl, '原图来源：', 'https://observablehq.com/@d3/world-earthquakes')
+# Weber-Fechner theory note
+add_rect(sl, 0.5, 4.85, 9, 0.55, RGBColor(0x1a, 0x2a, 0x3a))
+add_rect(sl, 0.5, 4.85, 0.04, 0.55, CYAN)
+add_text(sl, 0.65, 4.87, 8.6, 0.2, 'Weber-Fechner 定律：人对刺激变化的感知是对数式的，JND 与当前刺激强度成正比', size=9, color=CYAN, bold=True)
+add_text(sl, 0.65, 5.07, 8.6, 0.3, '震级本身是对数尺度（每增 1 级能量增 31.6 倍），线性颜色映射会压缩小震差异、拉伸大震差异 → 采用感知均匀色阶', size=8, color=LGRAY)
+
+add_source(sl, '原图来源：', 'https://observablehq.com/@jashkenas/quakespotter-0-1')
 
 # ===== SLIDE 10: CHART3 IMPROVE =====
 sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
 add_header(sl, 'Chart 3 · 地震地图改进', '交互 · 配色 · 主题')
 
-add_image_safe(sl, 'chart3/images/step02.png', 0.5, 0.85, 4, 2)
-add_text(sl, 0.5, 2.9, 4, 0.2, '顶部统计栏 + 悬停提示卡片', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
-add_image_safe(sl, 'chart3/images/step03.png', 0.5, 3.2, 4, 1.8)
-add_text(sl, 0.5, 5.05, 4, 0.2, 'v0.4 — 点击信息卡片 + 安全色板', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart3/images/step02.png', 0.5, 0.85, 4, 1.8)
+add_text(sl, 0.5, 2.7, 4, 0.2, '顶部统计栏 + 悬停提示卡片', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
+add_image_safe(sl, 'chart3/images/step03.png', 0.5, 3.0, 4, 1.5)
+add_text(sl, 0.5, 4.55, 4, 0.2, 'v0.4 — 半透明描边 + 信息卡片 + 安全色板', size=9, color=DGRAY, align=PP_ALIGN.CENTER)
 
 imps10 = [
     ('震级连续着色', '小震温和色，大震警示色，颜色连续变化'),
     ('深度信息叠加', '浅层鲜艳，深层暗淡，颜色同时编码震级和深度'),
-    ('悬停 + 点击交互', '悬停显示提示卡片，点击聚焦旋转缩放到该位置'),
+    ('悬停 + 点击交互', '悬停半透明描边提示，点击聚焦旋转（180° 周期）再放大'),
     ('拖拽旋转 + 惯性', '鼠标拖拽旋转地球，释放后按惯性继续旋转'),
-    ('色盲安全 + 主题切换', '可选安全色板，支持亮色/暗色主题切换'),
+    ('色盲安全 + 纹理叠加', '可选安全色板 + 不同纹理区分震级，支持亮暗主题'),
     ('加载进度指示', '解决首次加载白屏问题'),
 ]
 for i, (title, desc) in enumerate(imps10):
@@ -469,7 +487,7 @@ add_header(sl, 'Chart 4 · 气泡地图 Bubble Map', '原图分析')
 
 # Original problem images in 2x2 grid
 imgs11 = [
-    ('ppt/picture/chart4-origin.png', '原始气泡地图全局概览'),
+    ('chart4/images/image.png', '原图 — 悬停提示'),
     ('chart4/images/image-2.png', '原图 — 密集区重叠严重'),
     ('chart4/images/image-14.png', '原图 — 无高亮引导'),
     ('chart4/images/image-3.png', '棕色对色盲几乎不可见'),
@@ -530,10 +548,21 @@ imps12 = [
 for i, (title, desc) in enumerate(imps12):
     add_imp_card(sl, 7.0, 0.85 + i * 0.55, 2.7, title, desc)
 
+# Theory notes at bottom
+add_rect(sl, 0.35, 4.85, 4.3, 0.55, RGBColor(0x1a, 0x2a, 0x3a))
+add_rect(sl, 0.35, 4.85, 0.04, 0.55, CYAN)
+add_text(sl, 0.5, 4.87, 4.0, 0.2, 'Weber-Fechner 定律', size=9, color=CYAN, bold=True)
+add_text(sl, 0.5, 5.07, 4.0, 0.3, '人口跨越 5-6 个数量级，线性映射 99% 气泡挤在同一区间 → 对数映射压缩动态范围', size=8, color=LGRAY)
+
+add_rect(sl, 4.85, 4.85, 4.8, 0.55, RGBColor(0x1a, 0x2a, 0x3a))
+add_rect(sl, 4.85, 4.85, 0.04, 0.55, CYAN)
+add_text(sl, 5.0, 4.87, 4.5, 0.2, 'Treisman 前注意特征理论 (1985)', size=9, color=CYAN, bold=True)
+add_text(sl, 5.0, 5.07, 4.5, 0.3, '人眼 200ms 内自动检测颜色/大小/亮度突变，红色描边触发前注意处理，无需逐个扫描', size=8, color=LGRAY)
+
 # ===== SLIDE 13: SUMMARY =====
 sl = prs.slides.add_slide(prs.slide_layouts[6])
 set_bg(sl)
-add_text(sl, 0.5, 0.6, 9, 0.5, '总结', size=28, bold=True, align=PP_ALIGN.CENTER)
+add_text(sl, 0.5, 0.4, 9, 0.5, '总结', size=28, bold=True, align=PP_ALIGN.CENTER)
 
 cards = [
     ('1', '色盲适配', ['Tableau10 调色板', 'YlOrRd 亮度变化', '连续着色替代离散桶']),
@@ -541,20 +570,47 @@ cards = [
     ('3', '前注意特征', ['颜色对比', '描边高亮', '透明度变化', '亮度差异']),
 ]
 for i, (num, title, items) in enumerate(cards):
-    x = 1 + i * 2.8
-    shape = add_rect(sl, x, 1.4, 2.5, 2.8, BG_LIGHT)
+    x = 0.5 + i * 2.1
+    shape = add_rect(sl, x, 1.0, 1.9, 2.2, BG_LIGHT)
     # Top accent
-    add_rect(sl, x, 1.4, 2.5, 0.04, CYAN)
-    add_text(sl, x, 1.6, 2.5, 0.4, num, size=32, color=CYAN, bold=True, align=PP_ALIGN.CENTER)
-    add_text(sl, x, 2.1, 2.5, 0.3, title, size=14, bold=True, align=PP_ALIGN.CENTER)
+    add_rect(sl, x, 1.0, 1.9, 0.04, CYAN)
+    add_text(sl, x, 1.15, 1.9, 0.35, num, size=28, color=CYAN, bold=True, align=PP_ALIGN.CENTER)
+    add_text(sl, x, 1.55, 1.9, 0.25, title, size=12, bold=True, align=PP_ALIGN.CENTER)
     for j, item in enumerate(items):
-        add_text(sl, x, 2.5 + j * 0.3, 2.5, 0.25, item, size=10, color=GRAY, align=PP_ALIGN.CENTER)
+        add_text(sl, x, 1.85 + j * 0.25, 1.9, 0.2, item, size=9, color=GRAY, align=PP_ALIGN.CENTER)
 
-add_text(sl, 0.5, 4.5, 9, 0.3, '静态图表展示数据，交互式图表让用户探索数据', size=12, color=GRAY, align=PP_ALIGN.CENTER)
-add_text(sl, 0.5, 4.85, 9, 0.3, '感谢聆听', size=14, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
+# Theory cards
+add_text(sl, 6.8, 1.0, 2.8, 0.3, '理论支撑', size=14, color=CYAN, bold=True)
+
+theory_cards = [
+    ('Stevens 幂律', '感知 = k × 强度^β\n面积 β≈0.7，长度 β≈1.0\n→ 优先用长度编码'),
+    ('Weber-Fechner', '感知差异是对数式的\nJND 与刺激强度成正比\n→ 对数色阶 / 感知均匀映射'),
+    ('Treisman 前注意', '200ms 自动检测特征突变\n颜色/大小/亮度突变\n→ 描边/高亮让目标弹出'),
+]
+for i, (title, desc) in enumerate(theory_cards):
+    y = 1.4 + i * 0.7
+    card = add_rounded_rect(sl, 6.8, y, 2.8, 0.6, BG_LIGHT, CYAN)
+    tf = card.text_frame
+    tf.word_wrap = True
+    tf.margin_left = Inches(0.12)
+    tf.margin_top = Inches(0.04)
+    p = tf.paragraphs[0]
+    p.text = title
+    p.font.size = Pt(10)
+    p.font.color.rgb = CYAN
+    p.font.bold = True
+    p.font.name = FONT
+    p2 = tf.add_paragraph()
+    p2.text = desc
+    p2.font.size = Pt(7)
+    p2.font.color.rgb = LGRAY
+    p2.font.name = FONT
+
+add_text(sl, 0.5, 3.5, 9, 0.3, '静态图表展示数据，交互式图表让用户探索数据', size=12, color=GRAY, align=PP_ALIGN.CENTER)
+add_text(sl, 0.5, 3.85, 9, 0.3, '感谢聆听', size=14, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
 
 # GitHub links on thank you slide
-txBox = sl.shapes.add_textbox(Inches(1.5), Inches(5.2), Inches(7), Inches(0.3))
+txBox = sl.shapes.add_textbox(Inches(1.5), Inches(4.3), Inches(7), Inches(0.3))
 tf = txBox.text_frame
 tf.word_wrap = True
 p = tf.paragraphs[0]
@@ -577,7 +633,7 @@ run3.font.color.rgb = CYAN
 run3.font.name = FONT
 run3.hyperlink.address = 'https://stu-vad.github.io/Assignment-2/'
 
-add_rect(sl, 4.5, 5.5, 1, 0.03, CYAN)
+add_rect(sl, 4.5, 4.65, 1, 0.03, CYAN)
 
 # Save
 output_path = os.path.join(BASE, '数据可视化作业汇报.pptx')
