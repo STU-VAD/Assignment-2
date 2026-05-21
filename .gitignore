@@ -27,3 +27,29 @@ bun.lockb
 # Cache
 .cache/
 .parcel-cache/
+
+.claude
+
+.venv
+
+# Python
+__pycache__/
+*.pyc
+
+# PPT build artifacts
+ppt/slides/
+ppt/uv.lock
+ppt/pyproject.toml
+ppt/.python-version
+ppt/.~lock.*
+
+# Personal config (should not be in repo)
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.mcp.json
+.profile
+.ripgreprc
+.zprofile
+.zshrc
