@@ -19,6 +19,16 @@ export const UIManager = {
     },
 
     /**
+     * 关闭数据加载错误弹窗
+     */
+    hideErrorModal() {
+        const modal = document.getElementById("error-modal");
+        if (modal) {
+            modal.classList.remove("active");
+        }
+    },
+
+    /**
      * 初始化并填充州筛选下拉菜单
      * @param {Set<string>|Array<string>} stateSet 州名称集合描述
      */
